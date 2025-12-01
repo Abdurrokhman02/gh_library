@@ -22,6 +22,9 @@ class _BarangFormScreenState extends State<BarangFormScreen> {
     'Alat Tulis',
     'Buku Tulis',
     'Alat Gambar',
+    'Perekat',
+    'Alat Ukur',
+    'Kertas',
     'Lainnya',
   ];
 

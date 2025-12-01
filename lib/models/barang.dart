@@ -19,19 +19,29 @@ class Barang {
 
   factory Barang.fromJson(Map<String, dynamic> json) {
     return Barang(
-      id: json['_id'],
+      // PERBAIKAN DI SINI: Tambahkan .toString()
+      // Ini memaksa angka (int) dari MySQL berubah jadi teks (String)
+      id: (json['id'] ?? json['_id'])?.toString(), 
+      
       kodeBarang: json['kode_barang'] ?? '',
       namaBarang: json['nama_barang'] ?? '',
       kategori: json['kategori'] ?? '',
-      hargaSatuan: json['harga_satuan'] ?? 0,
-      hargaPak: json['harga_pak'] ?? 0,
-      stok: json['stok'] ?? 0,
+      // Pastikan harga dan stok tetap int (karena di modelnya int)
+      hargaSatuan: json['harga_satuan'] is String 
+          ? int.tryParse(json['harga_satuan']) ?? 0 
+          : json['harga_satuan'] ?? 0,
+      hargaPak: json['harga_pak'] is String 
+          ? int.tryParse(json['harga_pak']) ?? 0 
+          : json['harga_pak'] ?? 0,
+      stok: json['stok'] is String 
+          ? int.tryParse(json['stok']) ?? 0 
+          : json['stok'] ?? 0,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      if (id != null) '_id': id,
+      if (id != null) 'id': id,
       'kode_barang': kodeBarang,
       'nama_barang': namaBarang,
       'kategori': kategori,

@@ -9,9 +9,20 @@ import 'screens/auth/login.dart';
 import 'screens/auth/verify_otp.dart'; // Tambahkan import
 
 void main() {
-  final httpClient = http.Client();
+final httpClient = http.Client();
+  
+  // PERUBAHAN: Deteksi otomatis IP Emulator vs Web/iOS
+  String baseUrl = 'https://api.tokobuku.com'; // Default production
+  if (kDebugMode) {
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      baseUrl = 'http://10.0.2.2:3000'; // IP khusus Emulator Android
+    } else {
+      baseUrl = 'http://localhost:3000'; // Untuk iOS Simulator atau Web
+    }
+  }
+
   final apiService = ApiService(
-    baseUrl: kDebugMode ? 'http://localhost:3000' : 'https://api.tokobuku.com',
+    baseUrl: baseUrl,
     client: httpClient,
   );
 
