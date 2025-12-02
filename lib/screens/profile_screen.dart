@@ -1,7 +1,10 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+
+import '../providers/auth_provider.dart'; // Wajib diimport
 import '../providers/user_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -20,7 +23,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    // Muat profil pengguna saat halaman dimuat
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<UserProvider>(context, listen: false).loadUserProfile();
     });
@@ -47,24 +49,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(success ? 'Profil berhasil diperbarui!' : 'Gagal memperbarui profil.'),
+        content: Text(
+          success ? 'Profil berhasil diperbarui!' : 'Gagal memperbarui profil.',
+        ),
         backgroundColor: success ? Colors.green : Colors.red,
       ),
     );
-    // Reset image setelah update
     setState(() {
       _pickedImage = null;
     });
   }
 
-  // Memunculkan dialog edit profil
+  // Memunculkan dialog edit profil (Logika ini tetap sama)
   void _showEditProfileDialog() {
     final user = Provider.of<UserProvider>(context, listen: false).user;
     if (user == null) return;
 
     _nameController.text = user.name;
     _emailController.text = user.email;
-    _pickedImage = null; // Reset gambar saat membuka dialog
+    _pickedImage = null;
 
     showModalBottomSheet(
       context: context,
@@ -82,21 +85,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Ubah Profil', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Ubah Profil',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 20),
 
                   // Area Foto Profil
                   GestureDetector(
                     onTap: () async {
                       await _pickImage();
-                      setStateModal(() {}); // Update dialog state
+                      setStateModal(() {});
                     },
                     child: CircleAvatar(
                       radius: 50,
                       backgroundColor: Colors.grey.shade300,
                       backgroundImage: _pickedImage != null
                           ? FileImage(_pickedImage!)
-                          : NetworkImage(user.profilePictureUrl) as ImageProvider,
+                          : NetworkImage(user.profilePictureUrl)
+                                as ImageProvider,
                       child: Stack(
                         children: [
                           Positioned(
@@ -105,7 +112,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: CircleAvatar(
                               radius: 15,
                               backgroundColor: Colors.white,
-                              child: Icon(Icons.camera_alt, size: 15, color: Colors.deepPurple),
+                              child: Icon(
+                                Icons.camera_alt,
+                                size: 15,
+                                color: Colors.deepPurple,
+                              ),
                             ),
                           ),
                         ],
@@ -113,7 +124,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  
+
                   // Form Nama
                   TextField(
                     controller: _nameController,
@@ -134,8 +145,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () {
-                        Navigator.pop(context); // Tutup dialog
-                        _updateProfile();       // Panggil fungsi update
+                        Navigator.pop(context);
+                        _updateProfile();
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.deepPurple,
@@ -153,12 +164,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // Method untuk Logout (Sudah ada di kode kamu)
+  void _logout() {
+    // Memanggil signOut dari AuthProvider untuk menghapus token
+    Provider.of<AuthProvider>(context, listen: false).signOut();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profil Pengguna'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        actions: [
+          // <=== PERBAIKAN DI SINI: Tombol Logout ditambahkan ===>
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _logout, // Memanggil method yang sudah kamu buat
+            tooltip: 'Logout',
+          ),
+        ], // <=== Akhir actions ===>
       ),
       body: Consumer<UserProvider>(
         builder: (context, userProvider, child) {
@@ -182,14 +207,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   radius: 70,
                   backgroundColor: Colors.grey.shade300,
                   backgroundImage: NetworkImage(user.profilePictureUrl),
-                  onBackgroundImageError: (exception, stackTrace) => const Icon(Icons.person, size: 80),
+                  onBackgroundImageError: (exception, stackTrace) =>
+                      const Icon(Icons.person, size: 80),
                 ),
                 const SizedBox(height: 20),
 
                 // Nama
                 Text(
                   user.name,
-                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 5),
 
@@ -204,7 +233,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: userProvider.isLoading ? null : _showEditProfileDialog,
+                    onPressed: userProvider.isLoading
+                        ? null
+                        : _showEditProfileDialog,
                     icon: userProvider.isLoading
                         ? const SizedBox(
                             height: 15,
@@ -212,7 +243,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.edit),
-                    label: Text(userProvider.isLoading ? 'Memperbarui...' : 'Ubah Profil'),
+                    label: Text(
+                      userProvider.isLoading ? 'Memperbarui...' : 'Ubah Profil',
+                    ),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 15),
                       backgroundColor: Colors.deepPurple,

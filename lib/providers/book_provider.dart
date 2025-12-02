@@ -90,21 +90,20 @@ class BookProvider with ChangeNotifier {
 
   // Logic untuk save/delete dari Halaman Home
   Future<void> toggleBookSaveStatus(Book book) async {
-    // Baris 97 yang tadinya error, sekarang teratasi karena toggleSavedBook sudah ada di ApiService
     final bool success = await _apiService.toggleSavedBook(
       book.id,
       !book.isSaved,
     );
 
     if (success) {
-      // Update daftar semua buku
+      // Update daftar semua buku secara lokal
       final indexAll = _allBooks.indexWhere((b) => b.id == book.id);
       if (indexAll != -1) {
         _allBooks[indexAll] = book.copyWith(isSaved: !book.isSaved);
       }
 
-      // Panggil ulang fetchMyBooks untuk memastikan MyBook sinkron
       notifyListeners();
+      // Panggil ulang fetchMyBooks untuk memastikan MyBook sinkron
       fetchMyBooks();
     }
   }
