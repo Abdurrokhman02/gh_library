@@ -46,14 +46,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
+
         title: const Text('Katalog Buku'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => bookProvider.fetchAllBooks(),
-          ),
-        ],
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.search),
+              onPressed: () {
+                Navigator.pushNamed(context, '/search-books');
+              },
+            ),
+          ]
+
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -10,8 +10,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/book_model.dart';
 import '../models/user_model.dart';
 
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
 class ApiService {
-  final String _ci4BaseUrl = 'http://192.168.1.13:8080';
+  final String _ci4BaseUrl = 'http://10.0.2.2/ghlib-backend/public';
   final String _externalUploadUrl =
       'https://api.imgbb.com/1/upload?key=YOUR_IMGBB_API_KEY';
 
@@ -144,10 +147,16 @@ class ApiService {
   }
 
   // <==== METHOD YANG HILANG DAN PENYEBAB ERROR KAMU ====>
-  Future<bool> toggleSavedBook(int bookId, bool isSaved) async {
-    final Map<String, dynamic> body = {
-      'user_id': await _getUserId(),
-      'book_id': bookId,
+  Future<bool> toggleSavedBook({
+    required Book book,
+    required bool isSaved,
+  }) async {
+    final body = {
+      'external_id': book.id,
+      'title': book.title,
+      'author': book.author,
+      'cover_url': book.coverUrl,
+      'description': book.description,
     };
 
     final uri = Uri.parse('$_ci4BaseUrl/api/my-books');
@@ -157,13 +166,9 @@ class ApiService {
       body: json.encode(body),
     );
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      return true;
-    } else {
-      print('Gagal toggle: ${response.body}');
-      return false;
-    }
+    return response.statusCode == 200 || response.statusCode == 201;
   }
+
   // <=======================================================>
 
   // --- API USER PROFILE ---
@@ -242,4 +247,63 @@ class ApiService {
       throw Exception('Gagal mengupload foto ke API eksternal.');
     }
   }
+
+  // === OPEN LIBRARY EXTERNAL API ===
+  Future<List<Map<String, dynamic>>> searchBooksFromOpenLibrary(String query) async {
+    final url = Uri.parse('https://openlibrary.org/search.json?q=$query');
+    print("🔎 Fetching from: $url");
+
+    final response = await http.get(url);
+
+    print("📥 Status Code: ${response.statusCode}");
+    print("📦 Response body: ${response.body}");
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final List docs = data['docs'];
+
+      return docs.map((doc) {
+        return {
+          "id": doc["cover_edition_key"] ?? doc["key"] ?? "",
+          "title": doc["title"] ?? "Judul Tidak Tersedia",
+          "author": (doc["author_name"] != null && doc["author_name"].isNotEmpty)
+              ? doc["author_name"][0]
+              : "Tidak diketahui",
+          "category_name": (doc["subject"] != null && doc["subject"].isNotEmpty)
+              ? doc["subject"][0]
+              : "Umum",
+          "cover_url": doc["cover_i"] != null
+              ? "https://covers.openlibrary.org/b/id/${doc["cover_i"]}-M.jpg"
+              : "",
+          "description": "Deskripsi belum tersedia.",
+          "is_saved": false,
+        };
+      }).toList();
+    } else {
+      throw Exception("OpenLibrary API Error: ${response.statusCode}");
+    }
+  }
+
+  // Future<bool> createBook({
+  //   required String title,
+  //   required String author,
+  //   required String category,
+  //   required String coverUrl,
+  //   required String description,
+  // }) async {
+  //   final response = await http.post(
+  //     Uri.parse("$baseUrl/books"),
+  //     body: {
+  //       "title": title,
+  //       "author": author,
+  //       "category_name": category,
+  //       "cover_url": coverUrl,
+  //       "description": description,
+  //     },
+  //   );
+  //
+  //   return response.statusCode == 200;
+  // }
+
+
 }

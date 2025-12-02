@@ -29,7 +29,10 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    if (!success) {
+    if (success) {
+      // Jika login sukses masuk ke MainWrapper
+      Navigator.of(context).pushReplacementNamed('/main');
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Login gagal. Cek email dan password!')),
       );
