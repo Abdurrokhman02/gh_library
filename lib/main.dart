@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-
-import 'ui/login_page.dart';
-import 'ui/produk_list_page.dart';
-import 'ui/registrasi_page.dart';
+import 'package:provider/provider.dart';
+import 'providers/book_provider.dart';
+import 'providers/user_provider.dart';
+import 'screens/main_wrapper.dart';
 
 void main() {
   runApp(const MyApp());
@@ -13,15 +13,21 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Toko Kita',
-      theme: ThemeData(primarySwatch: Colors.blue),
-      initialRoute: '/login',
-      routes: {
-        '/login': (context) => const LoginPage(),
-        '/registrasi': (context) => const RegistrasiPage(),
-        '/produk': (context) => const ProdukListPage(),
-      },
+    // Daftarkan semua provider di sini
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => BookProvider()),
+        ChangeNotifierProvider(create: (_) => UserProvider()),
+      ],
+      child: MaterialApp(
+        title: 'Gh Library',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          useMaterial3: true,
+        ),
+        home: const MainWrapper(),
+      ),
     );
   }
 }

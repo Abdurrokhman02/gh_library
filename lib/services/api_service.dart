@@ -1,205 +1,168 @@
-// ... (kode di bagian atas, pastikan import sudah lengkap)
+// lib/services/api_service.dart
 import 'dart:convert';
+import 'dart:io';
 
-import 'package:flutter/foundation.dart' show kIsWeb; // FIX untuk Web/Emulator
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http_parser/http_parser.dart';
 
-import '../models/api_response.dart';
-import '../models/login_response.dart';
-import '../models/produk.dart';
-
-// Definisikan class Exception khusus untuk 401
-class TokenExpiredException implements Exception {
-  final String message = 'Sesi Anda telah berakhir. Silakan login ulang.';
-  @override
-  String toString() => message;
-}
+import '../models/book_model.dart';
+import '../models/user_model.dart';
 
 class ApiService {
-  // Gunakan logika kondisional untuk Web/Emulator/HP
-  static const String _baseUrl = (kIsWeb)
-      ? "http://localhost:8080"
-      : "http://10.0.2.2:8080";
+  final String _ci4BaseUrl = 'http://192.168.1.13:8080';
+  final String _externalUploadUrl =
+      'https://api.imgbb.com/1/upload?key=YOUR_IMGBB_API_KEY';
+  final int _userId = 1;
 
-  // Helper: Menyiapkan Header dengan Token Bearer
-  // ... (kode _getAuthHeaders() TIDAK BERUBAH) ...
+  // --- API UNTUK BUKU ---
 
-  Future<Map<String, String>> _getAuthHeaders() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
-    if (token == null) {
-      return {'Content-Type': 'application/json'};
-    }
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
-  }
+  Future<List<Book>> fetchAllBooks({
+    String? categoryId,
+    String? sortBy,
+    String? search,
+  }) async {
+    final Map<String, dynamic> queryParams = {};
+    if (categoryId != null) queryParams['category'] = categoryId;
+    if (sortBy != null) queryParams['sort'] = sortBy;
+    if (search != null && search.isNotEmpty) queryParams['search'] = search;
+    queryParams['user_id'] = _userId.toString();
 
-  // 1. REGISTRASI
-  // ... (kode registrasi() TIDAK BERUBAH) ...
-  Future<ApiResponse> registrasi(
-    String nama,
-    String email,
-    String password,
-  ) async {
-    final url = Uri.parse('$_baseUrl/registrasi');
+    final uri = Uri.parse(
+      '$_ci4BaseUrl/api/books',
+    ).replace(queryParameters: queryParams);
+
     try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'nama': nama, 'email': email, 'password': password}),
-      );
-
-      if (response.statusCode == 201) {
-        return ApiResponse.fromJson(json.decode(response.body));
-      } else {
-        var errorBody = json.decode(response.body);
-        return ApiResponse(
-          status: false,
-          data: errorBody['message'] ?? 'Gagal: ${response.statusCode}',
-          code: response.statusCode,
-        );
-      }
-    } catch (e) {
-      return ApiResponse(
-        status: false,
-        data: 'Terjadi kesalahan: $e',
-        code: 500,
-      );
-    }
-  }
-
-  // 2. LOGIN
-  // ... (kode login() TIDAK BERUBAH) ...
-  Future<LoginResponse> login(String email, String password) async {
-    final url = Uri.parse('$_baseUrl/login');
-    try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'email': email, 'password': password}),
-      );
-
+      final response = await http.get(uri);
       if (response.statusCode == 200) {
-        return LoginResponse.fromJson(json.decode(response.body));
+        final data = json.decode(response.body)['data'] as List;
+        return data.map((json) => Book.fromJson(json)).toList();
       } else {
-        var errorData = json.decode(response.body);
-        return LoginResponse(
-          status: false,
-          token: errorData['message'] ?? '', // Ambil pesan error jika ada
-          userEmail: '',
-          userId: 0,
-        );
+        throw Exception('Gagal memuat buku: Status ${response.statusCode}');
       }
     } catch (e) {
-      return LoginResponse(
-        status: false,
-        token: 'Error: $e',
-        userEmail: '',
-        userId: 0,
+      print('Error fetchAllBooks: $e');
+      throw Exception(
+        'Gagal memuat buku dari server. Cek koneksi atau CI4 API.',
       );
     }
   }
 
-  // 3. GET PRODUK (MODIFIKASI UNTUK PENANGANAN 401)
-  Future<List<Produk>> getProduk() async {
-    final url = Uri.parse('$_baseUrl/produk');
-    final headers = await _getAuthHeaders();
+  Future<List<Book>> fetchMyBooks({String? search}) async {
+    final Map<String, dynamic> queryParams = {};
+    if (search != null && search.isNotEmpty) queryParams['search'] = search;
+    queryParams['user_id'] = _userId.toString();
 
-    // HAPUS blok try-catch di sini untuk memastikan exception langsung dilempar
+    final uri = Uri.parse(
+      '$_ci4BaseUrl/api/my-books',
+    ).replace(queryParameters: queryParams);
 
-    final response = await http.get(url, headers: headers);
-
-    // Cek status 401
-    if (response.statusCode == 401) {
-      throw TokenExpiredException(); // Lempar Exception Khusus
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body)['data'] as List;
+        return data.map((json) => Book.fromJson(json)).toList();
+      } else {
+        throw Exception(
+          'Gagal memuat buku simpanan: Status ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      print('Error fetchMyBooks: $e');
+      throw Exception('Gagal memuat buku simpanan. Cek koneksi atau CI4 API.');
     }
+  }
+
+  // <==== INI METHOD YANG HILANG DAN PENYEBAB ERROR KAMU! ====>
+  Future<bool> toggleSavedBook(int bookId, bool isSaved) async {
+    final Map<String, dynamic> body = {'user_id': _userId, 'book_id': bookId};
+
+    final uri = Uri.parse('$_ci4BaseUrl/api/my-books');
+    final response = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode(body),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return true;
+    } else {
+      print('Gagal toggle: ${response.body}');
+      return false;
+    }
+  }
+  // <=======================================================>
+
+  // --- API UNTUK PROFILE ---
+
+  Future<User> fetchUserProfile() async {
+    final uri = Uri.parse('$_ci4BaseUrl/api/user/profile?user_id=$_userId');
+
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body)['data'];
+        return User.fromJson(data);
+      } else {
+        throw Exception('Gagal memuat profil: Status ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error fetchUserProfile: $e');
+      throw Exception('Gagal memuat profil. Cek koneksi atau CI4 API.');
+    }
+  }
+
+  Future<bool> updateProfile(
+    String name,
+    String email,
+    String? newPhotoUrl,
+  ) async {
+    final Map<String, dynamic> body = {
+      'user_id': _userId,
+      'name': name,
+      'email': email,
+      if (newPhotoUrl != null) 'profile_picture_url': newPhotoUrl,
+    };
+
+    final uri = Uri.parse('$_ci4BaseUrl/api/user/update');
+
+    final response = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode(body),
+    );
 
     if (response.statusCode == 200) {
-      final Map<String, dynamic> jsonResponse = json.decode(response.body);
-      // Pastikan akses key 'data' aman
-      final List<dynamic> jsonData = jsonResponse['data'] ?? [];
-
-      // Konversi List dynamic ke List<Produk>
-      return jsonData
-          .map((item) => Produk.fromJson(item as Map<String, dynamic>))
-          .toList();
+      return true;
     } else {
-      // Jika error selain 401 (misal 500)
-      throw Exception('Gagal memuat produk: ${response.statusCode}');
+      print('Gagal update profil: ${response.body}');
+      return false;
     }
   }
 
-  // ... (kode createProduk, updateProduk, deleteProduk TIDAK BERUBAH) ...
-  Future<ApiResponse> createProduk(Produk produk) async {
-    final url = Uri.parse('$_baseUrl/produk');
-    final headers = await _getAuthHeaders();
+  Future<String> uploadProfilePicture(File imageFile) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse(_externalUploadUrl),
+    );
+    request.files.add(
+      await http.MultipartFile.fromPath(
+        'image',
+        imageFile.path,
+        contentType: MediaType('image', 'jpeg'),
+      ),
+    );
 
-    try {
-      final response = await http.post(
-        url,
-        headers: headers,
-        body: json.encode(produk.toJson()),
-      );
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
 
-      if (response.statusCode == 201) {
-        return ApiResponse.fromJson(json.decode(response.body));
-      } else {
-        var errorBody = json.decode(response.body);
-        return ApiResponse(
-          status: false,
-          data: errorBody['message'] ?? 'Gagal menambah produk',
-          code: response.statusCode,
-        );
-      }
-    } catch (e) {
-      return ApiResponse(status: false, data: 'Error: $e');
-    }
-  }
-
-  Future<ApiResponse> updateProduk(String id, Produk produk) async {
-    final url = Uri.parse('$_baseUrl/produk/$id');
-    final headers = await _getAuthHeaders();
-
-    try {
-      final response = await http.put(
-        url,
-        headers: headers,
-        body: json.encode(produk.toJson()),
-      );
-
-      if (response.statusCode == 200) {
-        return ApiResponse.fromJson(json.decode(response.body));
-      }
-
-      return ApiResponse(
-        status: false,
-        data: 'Gagal update: ${response.statusCode}',
-      );
-    } catch (e) {
-      return ApiResponse(status: false, data: 'Error: $e');
-    }
-  }
-
-  Future<ApiResponse> deleteProduk(String id) async {
-    final url = Uri.parse('$_baseUrl/produk/$id');
-    final headers = await _getAuthHeaders();
-
-    try {
-      final response = await http.delete(url, headers: headers);
-
-      if (response.statusCode == 200) {
-        return ApiResponse.fromJson(json.decode(response.body));
-      }
-
-      return ApiResponse(
-        status: false,
-        data: 'Gagal menghapus data: ${response.statusCode}',
-      );
-    } catch (e) {
-      return ApiResponse(status: false, data: 'Error: $e');
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final String uploadedUrl = data['data']['url'];
+      print('Foto berhasil diupload: $uploadedUrl');
+      return uploadedUrl;
+    } else {
+      print('Gagal upload foto: ${response.statusCode} - ${response.body}');
+      throw Exception('Gagal mengupload foto ke API eksternal.');
     }
   }
 }
