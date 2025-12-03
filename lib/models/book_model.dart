@@ -1,6 +1,7 @@
 // lib/models/book_model.dart
 class Book {
-  final int id;
+  // final int id;
+  final String id;
   final String title;
   final String author;
   final String category;
@@ -26,7 +27,7 @@ class Book {
     final bool isBookSaved = (json['is_saved']?.toString().toLowerCase() == '1' || json['is_saved']?.toString().toLowerCase() == 'true');
     
     return Book(
-      id: int.tryParse(bookIdString) ?? 0, 
+      id: json['id'].toString(),
       title: json['title'] as String,
       author: json['author'] as String,
       category: json['category_name'] as String,

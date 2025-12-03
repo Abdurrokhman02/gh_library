@@ -11,7 +11,7 @@ import '../models/book_model.dart';
 import '../models/user_model.dart';
 
 class ApiService {
-  final String _ci4BaseUrl = 'http://192.168.1.13:8080';
+  final String _ci4BaseUrl = 'http://10.237.196.180:8080';
   final String _externalUploadUrl =
       'https://api.imgbb.com/1/upload?key=YOUR_IMGBB_API_KEY';
 
@@ -115,39 +115,41 @@ class ApiService {
   }
 
   Future<List<Book>> fetchMyBooks({String? search}) async {
-    final Map<String, dynamic> queryParams = {};
-    if (search != null && search.isNotEmpty) queryParams['search'] = search;
+    final userId = await _getUserId();
+
+    final Map<String, dynamic> queryParams = {
+      'user_id': userId.toString(), // <= WAJIB
+    };
+
+    if (search != null && search.isNotEmpty) {
+      queryParams['search'] = search;
+    }
 
     final uri = Uri.parse(
       '$_ci4BaseUrl/api/my-books',
     ).replace(queryParameters: queryParams);
 
-    try {
-      final response = await http.get(uri, headers: await _getHeaders());
+    final response = await http.get(uri, headers: await _getHeaders());
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body)['data'] as List;
-        return data
-            .map((json) => Book.fromJson(json))
-            .toList(); // <=== FIX: RETURN DATA
-      } else if (response.statusCode == 401) {
-        throw Exception('Token Expired');
-      } else {
-        throw Exception(
-          'Gagal memuat buku simpanan: Status ${response.statusCode}',
-        );
-      }
-    } catch (e) {
-      print('Error fetchMyBooks: $e');
-      rethrow; // Melempar error agar ditangkap Provider
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body)['data'] as List;
+      return data.map((json) => Book.fromJson(json)).toList();
     }
+    throw Exception("Failed");
   }
 
   // <==== METHOD YANG HILANG DAN PENYEBAB ERROR KAMU ====>
-  Future<bool> toggleSavedBook(int bookId, bool isSaved) async {
+  // GANTI method toggleSavedBook menjadi seperti ini:
+  Future<bool> toggleSavedBook(Book book) async {
     final Map<String, dynamic> body = {
       'user_id': await _getUserId(),
-      'book_id': bookId,
+
+      // Kirim detail buku untuk jaga-jaga kalau harus dibuat baru di DB
+      'title': book.title,
+      'author': book.author,
+      'cover_url': book.coverUrl,
+      'description': book.description,
+      'external_id': book.id, // Kirim ID asli (String dari OpenLib)
     };
 
     final uri = Uri.parse('$_ci4BaseUrl/api/my-books');
@@ -164,6 +166,7 @@ class ApiService {
       return false;
     }
   }
+
   // <=======================================================>
 
   // --- API USER PROFILE ---
@@ -240,6 +243,45 @@ class ApiService {
     } else {
       print('Gagal upload foto: ${response.statusCode} - ${response.body}');
       throw Exception('Gagal mengupload foto ke API eksternal.');
+    }
+  }
+
+  // === OPEN LIBRARY EXTERNAL API ===
+  Future<List<Map<String, dynamic>>> searchBooksFromOpenLibrary(
+    String query,
+  ) async {
+    final url = Uri.parse('https://openlibrary.org/search.json?q=$query');
+    print("🔎 Fetching from: $url");
+
+    final response = await http.get(url);
+
+    print("📥 Status Code: ${response.statusCode}");
+    print("📦 Response body: ${response.body}");
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final List docs = data['docs'];
+
+      return docs.map((doc) {
+        return {
+          "id": doc["cover_edition_key"] ?? doc["key"] ?? "",
+          "title": doc["title"] ?? "Judul Tidak Tersedia",
+          "author":
+              (doc["author_name"] != null && doc["author_name"].isNotEmpty)
+              ? doc["author_name"][0]
+              : "Tidak diketahui",
+          "category_name": (doc["subject"] != null && doc["subject"].isNotEmpty)
+              ? doc["subject"][0]
+              : "Umum",
+          "cover_url": doc["cover_i"] != null
+              ? "https://covers.openlibrary.org/b/id/${doc["cover_i"]}-M.jpg"
+              : "",
+          "description": "Deskripsi belum tersedia.",
+          "is_saved": false,
+        };
+      }).toList();
+    } else {
+      throw Exception("OpenLibrary API Error: ${response.statusCode}");
     }
   }
 }
