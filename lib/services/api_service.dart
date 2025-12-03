@@ -10,11 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/book_model.dart';
 import '../models/user_model.dart';
 
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-
 class ApiService {
-  final String _ci4BaseUrl = 'http://10.0.2.2/ghlib-backend/public';
+  final String _ci4BaseUrl = 'http://10.237.196.180:8080';
   final String _externalUploadUrl =
       'https://api.imgbb.com/1/upload?key=YOUR_IMGBB_API_KEY';
 
@@ -121,7 +118,7 @@ class ApiService {
     final userId = await _getUserId();
 
     final Map<String, dynamic> queryParams = {
-      'user_id': userId.toString(),  // <= WAJIB
+      'user_id': userId.toString(), // <= WAJIB
     };
 
     if (search != null && search.isNotEmpty) {
@@ -141,21 +138,21 @@ class ApiService {
     throw Exception("Failed");
   }
 
-
   // <==== METHOD YANG HILANG DAN PENYEBAB ERROR KAMU ====>
-  Future<bool> toggleSavedBook({
-    required Book book,
-    required bool isSaved,
-  }) async {
-    final userId = await _getUserId();
+  // GANTI method toggleSavedBook menjadi seperti ini:
+  Future<bool> toggleSavedBook(Book book) async {
+    final Map<String, dynamic> body = {
+      'user_id': await _getUserId(),
 
-    final body = {
-      'user_id': userId,
-      'book_id': book.id, // <= ini harus sesuai backend CI4
+      // Kirim detail buku untuk jaga-jaga kalau harus dibuat baru di DB
+      'title': book.title,
+      'author': book.author,
+      'cover_url': book.coverUrl,
+      'description': book.description,
+      'external_id': book.id, // Kirim ID asli (String dari OpenLib)
     };
 
     final uri = Uri.parse('$_ci4BaseUrl/api/my-books');
-
     final response = await http.post(
       uri,
       headers: await _getHeaders(),
@@ -164,8 +161,10 @@ class ApiService {
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       return true;
+    } else {
+      print('Gagal toggle: ${response.body}');
+      return false;
     }
-    return false;
   }
 
   // <=======================================================>
@@ -248,7 +247,9 @@ class ApiService {
   }
 
   // === OPEN LIBRARY EXTERNAL API ===
-  Future<List<Map<String, dynamic>>> searchBooksFromOpenLibrary(String query) async {
+  Future<List<Map<String, dynamic>>> searchBooksFromOpenLibrary(
+    String query,
+  ) async {
     final url = Uri.parse('https://openlibrary.org/search.json?q=$query');
     print("🔎 Fetching from: $url");
 
@@ -265,7 +266,8 @@ class ApiService {
         return {
           "id": doc["cover_edition_key"] ?? doc["key"] ?? "",
           "title": doc["title"] ?? "Judul Tidak Tersedia",
-          "author": (doc["author_name"] != null && doc["author_name"].isNotEmpty)
+          "author":
+              (doc["author_name"] != null && doc["author_name"].isNotEmpty)
               ? doc["author_name"][0]
               : "Tidak diketahui",
           "category_name": (doc["subject"] != null && doc["subject"].isNotEmpty)
@@ -282,6 +284,4 @@ class ApiService {
       throw Exception("OpenLibrary API Error: ${response.statusCode}");
     }
   }
-
-
 }
