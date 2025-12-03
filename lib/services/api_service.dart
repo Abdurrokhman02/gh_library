@@ -118,55 +118,54 @@ class ApiService {
   }
 
   Future<List<Book>> fetchMyBooks({String? search}) async {
-    final Map<String, dynamic> queryParams = {};
-    if (search != null && search.isNotEmpty) queryParams['search'] = search;
+    final userId = await _getUserId();
+
+    final Map<String, dynamic> queryParams = {
+      'user_id': userId.toString(),  // <= WAJIB
+    };
+
+    if (search != null && search.isNotEmpty) {
+      queryParams['search'] = search;
+    }
 
     final uri = Uri.parse(
       '$_ci4BaseUrl/api/my-books',
     ).replace(queryParameters: queryParams);
 
-    try {
-      final response = await http.get(uri, headers: await _getHeaders());
+    final response = await http.get(uri, headers: await _getHeaders());
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body)['data'] as List;
-        return data
-            .map((json) => Book.fromJson(json))
-            .toList(); // <=== FIX: RETURN DATA
-      } else if (response.statusCode == 401) {
-        throw Exception('Token Expired');
-      } else {
-        throw Exception(
-          'Gagal memuat buku simpanan: Status ${response.statusCode}',
-        );
-      }
-    } catch (e) {
-      print('Error fetchMyBooks: $e');
-      rethrow; // Melempar error agar ditangkap Provider
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body)['data'] as List;
+      return data.map((json) => Book.fromJson(json)).toList();
     }
+    throw Exception("Failed");
   }
+
 
   // <==== METHOD YANG HILANG DAN PENYEBAB ERROR KAMU ====>
   Future<bool> toggleSavedBook({
     required Book book,
     required bool isSaved,
   }) async {
+    final userId = await _getUserId();
+
     final body = {
-      'external_id': book.id,
-      'title': book.title,
-      'author': book.author,
-      'cover_url': book.coverUrl,
-      'description': book.description,
+      'user_id': userId,
+      'book_id': book.id, // <= ini harus sesuai backend CI4
     };
 
     final uri = Uri.parse('$_ci4BaseUrl/api/my-books');
+
     final response = await http.post(
       uri,
       headers: await _getHeaders(),
       body: json.encode(body),
     );
 
-    return response.statusCode == 200 || response.statusCode == 201;
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return true;
+    }
+    return false;
   }
 
   // <=======================================================>
@@ -283,27 +282,6 @@ class ApiService {
       throw Exception("OpenLibrary API Error: ${response.statusCode}");
     }
   }
-
-  // Future<bool> createBook({
-  //   required String title,
-  //   required String author,
-  //   required String category,
-  //   required String coverUrl,
-  //   required String description,
-  // }) async {
-  //   final response = await http.post(
-  //     Uri.parse("$baseUrl/books"),
-  //     body: {
-  //       "title": title,
-  //       "author": author,
-  //       "category_name": category,
-  //       "cover_url": coverUrl,
-  //       "description": description,
-  //     },
-  //   );
-  //
-  //   return response.statusCode == 200;
-  // }
 
 
 }
